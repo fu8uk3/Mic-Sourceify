@@ -25,7 +25,7 @@ vcpkg install portaudio speex
 Configure/build (replace the vcpkg path if needed):
 
 ```powershell
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=C:/src/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=[source_to_vcpkg]/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build build --config Release
 ```
 
