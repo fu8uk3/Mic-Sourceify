@@ -199,6 +199,18 @@ int main(int argc, char** argv) {
         Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
 
+    const PaStreamInfo* streamInfo = Pa_GetStreamInfo(stream);
+    if (streamInfo) {
+        std::cout << "WASAPI/PortAudio stream diagnostics:\\n"
+                  << "  Sample rate:       " << streamInfo->sampleRate << " Hz\\n"
+                  << "  Input latency:     " << streamInfo->inputLatency * 1000.0 << " ms\\n"
+                  << "  Output latency:    " << streamInfo->outputLatency * 1000.0 << " ms\\n"
+                  << "  Callback quantum:  " << kCallbackFrames << " frames ("
+                  << (1000.0 * kCallbackFrames / kDeviceRate) << " ms)\\n";
+    } else {
+        std::cout << "Warning: PortAudio did not provide stream latency information.\\n";
+    }
+
     std::cout << "Source Voice is running. Speex NB, quality " << std::clamp(quality, 0, 10)
               << ". Press ENTER to stop.\n";
     std::cin.get();
