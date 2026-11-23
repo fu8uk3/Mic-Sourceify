@@ -30,7 +30,8 @@ struct Engine {
     int quality = 3;
 
     explicit Engine(int q) : quality(std::clamp(q, 0, 10)) {
-        const SpeexMode* mode = &speex_nb_mode;
+        #undef speex_lib_get_mode
+        const SpeexMode* mode = speex_lib_get_mode(SPEEX_MODEID_NB);
         encoder = speex_encoder_init(mode);
         decoder = speex_decoder_init(mode);
         if (!encoder || !decoder) return;
