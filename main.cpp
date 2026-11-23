@@ -16,6 +16,7 @@ constexpr int kDeviceRate = 48000;
 constexpr int kCodecRate = 8000;
 constexpr int kFrame = 160;                 // Speex NB: 20 ms at 8 kHz
 constexpr unsigned long kCallbackFrames = 960; // 20 ms at 48 kHz
+constexpr double kSuggestedLatencySeconds = 0.020; // Ask WASAPI for 20 ms per direction.
 
 struct Engine {
     void* encoder = nullptr;
@@ -178,11 +179,11 @@ int main(int argc, char** argv) {
 
     PaStreamParameters input{};
     input.device = inputDevice; input.channelCount = 1; input.sampleFormat = paFloat32;
-    input.suggestedLatency = inInfo->defaultLowInputLatency;
+    input.suggestedLatency = kSuggestedLatencySeconds;
     input.hostApiSpecificStreamInfo = nullptr;
     PaStreamParameters output{};
     output.device = outputDevice; output.channelCount = 1; output.sampleFormat = paFloat32;
-    output.suggestedLatency = outInfo->defaultLowOutputLatency;
+    output.suggestedLatency = kSuggestedLatencySeconds;
     output.hostApiSpecificStreamInfo = nullptr;
 
     PaStream* stream = nullptr;
