@@ -18,7 +18,9 @@
 #include <string>
 #include <cwchar>
 #include <vector>
+#include <dwmapi.h>
 
+#pragma comment(lib, "Dwmapi.lib")
 #pragma comment(lib, "Comctl32.lib")
 #pragma comment(lib, "UxTheme.lib")
 #pragma comment(lib, "Shell32.lib")
@@ -216,6 +218,28 @@ constexpr COLORREF kGold = RGB(196, 181, 80);
 constexpr COLORREF kEdgeLight = RGB(128, 128, 128);
 constexpr COLORREF kEdgeDark = RGB(44, 44, 44);
 
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR  34
+#define DWMWA_CAPTION_COLOR 35
+#define DWMWA_TEXT_COLOR    36
+#endif
+
+void applyDarkFrame(HWND hwnd) {
+    // Тёмный заголовок и кнопки свернуть/закрыть (Win10 2004+ и Win11)
+    const BOOL dark = TRUE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+
+    // Свои цвета под скин (только Win11, build 22000+)
+    const COLORREF caption = kBackground;  // 76,88,68
+    const COLORREF border = kEdgeDark;    // 44,44,44
+    const COLORREF text = kText;        // 220,222,223
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &border, sizeof(border));
+    DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &text, sizeof(text));
+}
 void fillSolid(HDC dc, const RECT& r, COLORREF c) {
     HBRUSH b = CreateSolidBrush(c);
     FillRect(dc, &r, b);
@@ -506,7 +530,7 @@ void stopAudio() {
     if (g_app.outputCombo) EnableWindow(g_app.outputCombo, TRUE);
     g_app.displayLevel = 0;
     if (g_app.window) InvalidateRect(g_app.window, nullptr, FALSE);
-    if (g_app.latencyLabel) SetWindowTextW(g_app.latencyLabel, L"Input: —    Output: —");
+    if (g_app.latencyLabel) SetWindowTextW(g_app.latencyLabel, L"Input:      Output:  ");
     g_inputPeak.store(0.0f, std::memory_order_relaxed);
 }
 
@@ -583,7 +607,7 @@ bool startAudio() {
     SetWindowTextW(g_app.startButton, L"Stop processing");
     EnableWindow(g_app.inputCombo, FALSE);
     EnableWindow(g_app.outputCombo, FALSE);
-    setStatus(L"Running · Speex Narrowband");
+    setStatus(L"Running");
     saveSettings();
     return true;
 }
@@ -734,6 +758,7 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     }
     case WM_CREATE: {
         g_app.window = hwnd;
+        applyDarkFrame(hwnd);
         SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(g_appIconSmall));
         SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(g_appIconLarge));
         g_font = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
@@ -767,10 +792,10 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                                          510, 258, 75, 20, hwnd);
         setFont(g_app.qualityValue);
 
-        g_app.latencyLabel = makeControl(L"STATIC", L"Input: n/a    Output: n/a", SS_LEFT,
+        g_app.latencyLabel = makeControl(L"STATIC", L"Input:        Output:    ", SS_LEFT,
                                          30, 392, 555, 22, hwnd, ID_LATENCY);
         setFont(g_app.latencyLabel);
-        g_app.statusLabel = makeControl(L"STATIC", L"Stopped · Select devices and start",
+        g_app.statusLabel = makeControl(L"STATIC", L"Stopped. Select devices and start",
                                         SS_LEFT, 30, 420, 555, 22, hwnd, ID_STATUS);
         setFont(g_app.statusLabel);
 
