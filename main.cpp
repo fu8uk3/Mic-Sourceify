@@ -205,78 +205,63 @@ HBRUSH g_windowBrush = nullptr;
 HBRUSH g_controlBrush = nullptr;
 HBRUSH g_comboBrush = nullptr;
 
-constexpr COLORREF kBackground = RGB(75, 88, 68);
-constexpr COLORREF kPanel = RGB(75, 88, 68);
-constexpr COLORREF kText = RGB(249, 255, 250);
-constexpr COLORREF kMuted = RGB(166, 174, 143);
+// Palette sampled from the reference Steam skin.
+constexpr COLORREF kBackground = RGB(76, 88, 68);   // window, buttons, menus
+constexpr COLORREF kPanel = kBackground;
+constexpr COLORREF kInset = RGB(62, 70, 55);        // fields, lists, tracks
+constexpr COLORREF kHover = RGB(90, 106, 80);       // hover / selected
+constexpr COLORREF kText = RGB(220, 222, 223);
+constexpr COLORREF kMuted = RGB(155, 162, 153);
+constexpr COLORREF kGold = RGB(196, 181, 80);
+constexpr COLORREF kEdgeLight = RGB(128, 128, 128);
+constexpr COLORREF kEdgeDark = RGB(44, 44, 44);
 
-constexpr COLORREF kBlue = RGB(73, 87, 64);
+void fillSolid(HDC dc, const RECT& r, COLORREF c) {
+    HBRUSH b = CreateSolidBrush(c);
+    FillRect(dc, &r, b);
+    DeleteObject(b);
+}
 
-void drawMetal(HDC dc, const RECT& r) {
-    HBRUSH fill = CreateSolidBrush(kBackground);
-    FillRect(dc, &r, fill);
-    DeleteObject(fill);
+// 1px flat bevel: light top/left + dark bottom/right (raised), inverted when sunken.
+void drawBevel(HDC dc, const RECT& r, bool raised) {
+    const COLORREF tl = raised ? kEdgeLight : kEdgeDark;
+    const COLORREF br = raised ? kEdgeDark : kEdgeLight;
+    fillSolid(dc, RECT{ r.left, r.top, r.right - 1, r.top + 1 }, tl);
+    fillSolid(dc, RECT{ r.left, r.top, r.left + 1, r.bottom - 1 }, tl);
+    fillSolid(dc, RECT{ r.left, r.bottom - 1, r.right, r.bottom }, br);
+    fillSolid(dc, RECT{ r.right - 1, r.top, r.right, r.bottom }, br);
 }
 
 void drawQualitySlider(HDC dc) {
-    RECT outer{ 30, 280, 585, 318 };
-    HBRUSH face = CreateSolidBrush(RGB(151, 155, 132));
-    FillRect(dc, &outer, face);
-    DeleteObject(face);
-    DrawEdge(dc, &outer, EDGE_SUNKEN, BF_RECT);
-
-    RECT track{ 48, 294, 567, 299 };
-    HBRUSH trackBrush = CreateSolidBrush(RGB(42, 51, 39));
-    FillRect(dc, &track, trackBrush);
-    DeleteObject(trackBrush);
-    DrawEdge(dc, &track, EDGE_SUNKEN, BF_RECT);
+    RECT track{ 48, 293, 567, 300 };
+    fillSolid(dc, track, kInset);
 
     for (int i = 0; i <= 10; ++i) {
         const int x = 50 + i * 51;
-        RECT tick{ x - 1, 305, x + 2, 312 };
-        HBRUSH tickBrush = CreateSolidBrush(RGB(49, 59, 44));
-        FillRect(dc, &tick, tickBrush);
-        DeleteObject(tickBrush);
+        fillSolid(dc, RECT{ x - 1, 305, x + 1, 312 }, kMuted);
     }
 
     const int knobX = 50 + g_app.quality * 51;
-    RECT knob{ knobX - 9, 282, knobX + 10, 310 };
-    HBRUSH knobBrush = CreateSolidBrush(RGB(174, 178, 153));
-    FillRect(dc, &knob, knobBrush);
-    DeleteObject(knobBrush);
-    DrawEdge(dc, &knob, EDGE_RAISED, BF_RECT);
-    HPEN pen = CreatePen(PS_SOLID, 1, RGB(91, 102, 76));
-    HPEN oldPen = static_cast<HPEN>(SelectObject(dc, pen));
-    MoveToEx(dc, knobX - 3, 286, nullptr); LineTo(dc, knobX - 3, 306);
-    MoveToEx(dc, knobX + 3, 286, nullptr); LineTo(dc, knobX + 3, 306);
-    SelectObject(dc, oldPen);
-    DeleteObject(pen);
+    RECT knob{ knobX - 9, 283, knobX + 10, 311 };
+    fillSolid(dc, knob, kHover);
+    drawBevel(dc, knob, true);
+    fillSolid(dc, RECT{ knobX - 3, 288, knobX - 2, 306 }, kInset);
+    fillSolid(dc, RECT{ knobX + 3, 288, knobX + 4, 306 }, kInset);
 }
 
 void drawLevelMeter(HDC dc) {
     RECT outer{ 30, 356, 585, 376 };
-    HBRUSH face = CreateSolidBrush(RGB(117, 128, 100));
-    FillRect(dc, &outer, face);
-    DeleteObject(face);
-    DrawEdge(dc, &outer, EDGE_SUNKEN, BF_RECT);
-
-    RECT inner{ 37, 361, 578, 371 };
-    HBRUSH dark = CreateSolidBrush(RGB(39, 49, 35));
-    FillRect(dc, &inner, dark);
-    DeleteObject(dark);
+    fillSolid(dc, outer, kInset);
 
     const int segments = 54;
     const int gap = 2;
-    const int totalWidth = inner.right - inner.left - 4;
     const int segmentWidth = 8;
     const int lit = (g_app.displayLevel * segments) / 100;
     for (int i = 0; i < segments; ++i) {
-        RECT seg{ inner.left + 2 + i * (segmentWidth + gap), inner.top + 2,
-                  inner.left + 2 + i * (segmentWidth + gap) + segmentWidth, inner.bottom - 2 };
-        COLORREF c = i < 39 ? RGB(68, 136, 44) : (i < 48 ? RGB(203, 158, 39) : RGB(255, 91, 63));
-        HBRUSH b = CreateSolidBrush(i < lit ? c : RGB(53, 64, 46));
-        FillRect(dc, &seg, b);
-        DeleteObject(b);
+        const int left = 39 + i * (segmentWidth + gap);
+        RECT seg{ left, 363, left + segmentWidth, 369 };
+        const COLORREF c = i < 39 ? RGB(68, 136, 44) : (i < 48 ? kGold : RGB(255, 91, 63));
+        fillSolid(dc, seg, i < lit ? c : kBackground);
     }
 }
 
@@ -291,47 +276,109 @@ void updateQualityFromX(int x) {
     InvalidateRect(g_app.window, nullptr, FALSE);
 }
 
-void drawPanel(HDC dc, int x, int y, int width, int height) {
-    RECT r{ x, y, x + width, y + height };
-    HBRUSH fill = CreateSolidBrush(kPanel);
-    FillRect(dc, &r, fill);
-    DeleteObject(fill);
-    DrawEdge(dc, &r, EDGE_SUNKEN, BF_RECT);
-}
-
 void drawSection(HDC dc, const wchar_t* title, int y, int width = 555) {
-    RECT r{ 30, y, 30 + width, y + 23 };
-    HBRUSH fill = CreateSolidBrush(kBlue);
-    FillRect(dc, &r, fill);
-    DeleteObject(fill);
-    DrawEdge(dc, &r, EDGE_RAISED, BF_RECT);
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, kText);
+    SetTextColor(dc, kGold);
     HFONT old = static_cast<HFONT>(SelectObject(dc, g_sectionFont ? g_sectionFont : g_font));
-    RECT tr{ r.left + 9, r.top + 2, r.right - 6, r.bottom };
+    RECT tr{ 30, y, 30 + width, y + 23 };
     DrawTextW(dc, title, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     SelectObject(dc, old);
 }
 
+// Items of the dropdown list.
 void drawComboItem(const DRAWITEMSTRUCT* dis) {
     if (!dis || dis->CtlType != ODT_COMBOBOX) return;
+    if (dis->itemID == static_cast<UINT>(-1)) return; // closed field is painted by comboProc
     RECT r = dis->rcItem;
     const bool selected = (dis->itemState & ODS_SELECTED) != 0;
-    HBRUSH fill = CreateSolidBrush(selected ? RGB(105, 119, 77) : RGB(176, 180, 157));
-    FillRect(dis->hDC, &r, fill);
-    DeleteObject(fill);
+    fillSolid(dis->hDC, r, selected ? kHover : kBackground);
     wchar_t text[512]{};
-    if (dis->itemID == static_cast<UINT>(-1))
-        GetWindowTextW(dis->hwndItem, text, 511);
-    else
-        SendMessageW(dis->hwndItem, CB_GETLBTEXT, dis->itemID, reinterpret_cast<LPARAM>(text));
+    SendMessageW(dis->hwndItem, CB_GETLBTEXT, dis->itemID, reinterpret_cast<LPARAM>(text));
     SetBkMode(dis->hDC, TRANSPARENT);
-    SetTextColor(dis->hDC, selected ? RGB(255, 255, 255) : RGB(38, 46, 34));
+    SetTextColor(dis->hDC, kText);
     HFONT old = static_cast<HFONT>(SelectObject(dis->hDC, g_font));
     r.left += 7;
-    DrawTextW(dis->hDC, text, -1, &r, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    DrawTextW(dis->hDC, text, -1, &r, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
     SelectObject(dis->hDC, old);
-    if (dis->itemState & ODS_FOCUS) DrawFocusRect(dis->hDC, &dis->rcItem);
+}
+
+// Paints the closed combo box (inset field + flat arrow button) in the skin colors.
+LRESULT CALLBACK comboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                           UINT_PTR, DWORD_PTR) {
+    switch (msg) {
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT: {
+        PAINTSTRUCT ps{};
+        HDC dc = BeginPaint(hwnd, &ps);
+        RECT rc{};
+        GetClientRect(hwnd, &rc);
+        const bool enabled = IsWindowEnabled(hwnd) != FALSE;
+        const bool dropped = SendMessageW(hwnd, CB_GETDROPPEDSTATE, 0, 0) != 0;
+
+        fillSolid(dc, rc, kInset);
+
+        RECT btn{ rc.right - 22, rc.top, rc.right, rc.bottom };
+        fillSolid(dc, btn, dropped ? kHover : kBackground);
+        drawBevel(dc, btn, !dropped);
+
+        const COLORREF arrowColor = enabled ? kText : kMuted;
+        const int cx = (btn.left + btn.right) / 2;
+        const int cy = (btn.top + btn.bottom) / 2;
+        POINT tri[3] = { { cx - 4, cy - 2 }, { cx + 4, cy - 2 }, { cx, cy + 2 } };
+        HBRUSH arrowBrush = CreateSolidBrush(arrowColor);
+        HPEN arrowPen = CreatePen(PS_SOLID, 1, arrowColor);
+        HGDIOBJ oldBrush = SelectObject(dc, arrowBrush);
+        HGDIOBJ oldPen = SelectObject(dc, arrowPen);
+        Polygon(dc, tri, 3);
+        SelectObject(dc, oldBrush);
+        SelectObject(dc, oldPen);
+        DeleteObject(arrowBrush);
+        DeleteObject(arrowPen);
+
+        wchar_t text[512]{};
+        const LRESULT sel = SendMessageW(hwnd, CB_GETCURSEL, 0, 0);
+        if (sel != CB_ERR)
+            SendMessageW(hwnd, CB_GETLBTEXT, static_cast<WPARAM>(sel), reinterpret_cast<LPARAM>(text));
+        SetBkMode(dc, TRANSPARENT);
+        SetTextColor(dc, enabled ? kText : kMuted);
+        HFONT old = static_cast<HFONT>(SelectObject(dc, g_font));
+        RECT tr{ rc.left + 7, rc.top, btn.left - 4, rc.bottom };
+        DrawTextW(dc, text, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+        SelectObject(dc, old);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, comboProc, 0);
+        break;
+    }
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
+// Hover tracking for the owner-drawn Start button.
+bool g_startHot = false;
+
+LRESULT CALLBACK buttonHoverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                 UINT_PTR, DWORD_PTR) {
+    switch (msg) {
+    case WM_MOUSEMOVE:
+        if (!g_startHot) {
+            g_startHot = true;
+            TRACKMOUSEEVENT t{ sizeof(t), TME_LEAVE, hwnd, 0 };
+            TrackMouseEvent(&t);
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        break;
+    case WM_MOUSELEAVE:
+        g_startHot = false;
+        InvalidateRect(hwnd, nullptr, FALSE);
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, buttonHoverProc, 0);
+        break;
+    }
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
 }
 
 HWND makeControl(const wchar_t* cls, const wchar_t* text, DWORD style,
@@ -375,8 +422,8 @@ void populateDevices() {
     SendMessageW(g_app.outputCombo, CB_RESETCONTENT, 0, 0);
 
     const int count = Pa_GetDeviceCount();
-    int savedInput = GetPrivateProfileIntW(L"Audio", L"InputDevice", -1, L".\\source-voice.ini");
-    int savedOutput = GetPrivateProfileIntW(L"Audio", L"OutputDevice", -1, L".\\source-voice.ini");
+    int savedInput = GetPrivateProfileIntW(L"Audio", L"InputDevice", -1, L".\\mic-sourceify.ini");
+    int savedOutput = GetPrivateProfileIntW(L"Audio", L"OutputDevice", -1, L".\\mic-sourceify.ini");
     int inputPreferred = -1, outputPreferred = -1;
     int inputSavedItem = -1, outputSavedItem = -1;
 
@@ -432,14 +479,14 @@ void saveSettings() {
     wchar_t value[32]{};
     if (in >= 0) {
         swprintf_s(value, L"%d", in);
-        WritePrivateProfileStringW(L"Audio", L"InputDevice", value, L".\\source-voice.ini");
+        WritePrivateProfileStringW(L"Audio", L"InputDevice", value, L".\\mic-sourceify.ini");
     }
     if (out >= 0) {
         swprintf_s(value, L"%d", out);
-        WritePrivateProfileStringW(L"Audio", L"OutputDevice", value, L".\\source-voice.ini");
+        WritePrivateProfileStringW(L"Audio", L"OutputDevice", value, L".\\mic-sourceify.ini");
     }
     swprintf_s(value, L"%d", g_app.quality);
-    WritePrivateProfileStringW(L"Audio", L"Quality", value, L".\\source-voice.ini");
+    WritePrivateProfileStringW(L"Audio", L"Quality", value, L".\\mic-sourceify.ini");
 }
 
 void setStatus(const std::wstring& text) {
@@ -468,7 +515,7 @@ bool startAudio() {
     const int outputDevice = selectedDevice(g_app.outputCombo);
     if (inputDevice < 0 || outputDevice < 0) {
         MessageBoxW(g_app.window, L"Select both an input and an output device.",
-                    L"Source Voice", MB_OK | MB_ICONWARNING);
+                    L"Mic-Sourceify", MB_OK | MB_ICONWARNING);
         return false;
     }
 
@@ -476,7 +523,7 @@ bool startAudio() {
     const PaDeviceInfo* outInfo = Pa_GetDeviceInfo(outputDevice);
     if (!inInfo || !outInfo || inInfo->maxInputChannels < 1 || outInfo->maxOutputChannels < 1) {
         MessageBoxW(g_app.window, L"The selected audio device is unavailable.",
-                    L"Source Voice", MB_OK | MB_ICONERROR);
+                    L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -484,7 +531,7 @@ bool startAudio() {
     if (!g_app.engine->active) {
         g_app.engine.reset();
         MessageBoxW(g_app.window, L"Could not initialize the Speex codec.",
-                    L"Source Voice", MB_OK | MB_ICONERROR);
+                    L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -507,7 +554,7 @@ bool startAudio() {
     if (err != paNoError) {
         const std::wstring message = L"Could not open audio stream:\n" + widen(Pa_GetErrorText(err)) +
             L"\n\nCheck that the selected devices support 48 kHz mono float audio.";
-        MessageBoxW(g_app.window, message.c_str(), L"Source Voice", MB_OK | MB_ICONERROR);
+        MessageBoxW(g_app.window, message.c_str(), L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         g_app.stream = nullptr;
         g_app.engine.reset();
         return false;
@@ -516,7 +563,7 @@ bool startAudio() {
     err = Pa_StartStream(g_app.stream);
     if (err != paNoError) {
         const std::wstring message = L"Could not start audio stream:\n" + widen(Pa_GetErrorText(err));
-        MessageBoxW(g_app.window, message.c_str(), L"Source Voice", MB_OK | MB_ICONERROR);
+        MessageBoxW(g_app.window, message.c_str(), L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         Pa_CloseStream(g_app.stream);
         g_app.stream = nullptr;
         g_app.engine.reset();
@@ -557,7 +604,7 @@ void addTrayIcon(HWND hwnd) {
     g_trayData.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     g_trayData.uCallbackMessage = WM_TRAYICON;
     g_trayData.hIcon = g_appIconSmall;
-    wcscpy_s(g_trayData.szTip, L"Source Voice");
+    wcscpy_s(g_trayData.szTip, L"Mic-Sourceify");
     g_trayIconAdded = Shell_NotifyIconW(NIM_ADD, &g_trayData) == TRUE;
 }
 
@@ -586,7 +633,7 @@ void toggleAudio() {
 void showTrayMenu(HWND hwnd) {
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
-    AppendMenuW(menu, MF_STRING, ID_TRAY_SHOW, L"Show Source Voice");
+    AppendMenuW(menu, MF_STRING, ID_TRAY_SHOW, L"Show Mic-Sourceify");
     AppendMenuW(menu, MF_STRING, ID_TRAY_TOGGLE,
                 g_app.running ? L"Stop processing" : L"Start processing");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
@@ -617,27 +664,17 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         HDC dc = BeginPaint(hwnd, &ps);
         RECT client{};
         GetClientRect(hwnd, &client);
-        HBRUSH bg = CreateSolidBrush(kBackground);
-        FillRect(dc, &client, bg);
-        DeleteObject(bg);
-        RECT body{ 8, 8, client.right - 8, client.bottom - 8 };
-        drawMetal(dc, body);
-        drawPanel(dc, 8, 8, client.right - 16, client.bottom - 16);
+        fillSolid(dc, client, kBackground);   // single flat surface, no nested panel
 
-        RECT header{ 16, 16, client.right - 16, 86 };
-        HBRUSH head = CreateSolidBrush(RGB(55, 68, 49));
-        FillRect(dc, &header, head);
-        DeleteObject(head);
-        DrawEdge(dc, &header, EDGE_RAISED, BF_RECT);
         SetBkMode(dc, TRANSPARENT);
-        SetTextColor(dc, RGB(226, 227, 205));
+        SetTextColor(dc, kText);
         HFONT old = static_cast<HFONT>(SelectObject(dc, g_titleFont ? g_titleFont : g_font));
-        RECT title{ 28, 20, client.right - 28, 52 };
-        DrawTextW(dc, L"SOURCE VOICE", -1, &title, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        RECT title{ 30, 20, client.right - 30, 52 };
+        DrawTextW(dc, L"MIC-SOURCEIFY", -1, &title, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         SelectObject(dc, old);
         SetTextColor(dc, kMuted);
         HFONT oldSmall = static_cast<HFONT>(SelectObject(dc, g_font));
-        RECT subtitle{ 30, 53, client.right - 25, 78 };
+        RECT subtitle{ 30, 53, client.right - 30, 78 };
         DrawTextW(dc, L"SOURCE 1  /  COUNTER-STRIKE VOICE PROCESSING", -1,
                   &subtitle, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         SelectObject(dc, oldSmall);
@@ -660,24 +697,23 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX: {
         HDC dc = reinterpret_cast<HDC>(wParam);
-        SetTextColor(dc, RGB(38, 46, 34));
-        SetBkColor(dc, RGB(176, 180, 157));
+        SetTextColor(dc, kText);
+        SetBkColor(dc, kBackground);
         return reinterpret_cast<LRESULT>(g_comboBrush);
     }
     case WM_DRAWITEM: {
         const auto* dis = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
         if (dis && dis->CtlID == ID_START) {
             RECT r = dis->rcItem;
-            HBRUSH fill = CreateSolidBrush((dis->itemState & ODS_SELECTED)
-                ? RGB(64, 79, 54) : RGB(153, 160, 132));
-            FillRect(dis->hDC, &r, fill);
-            DeleteObject(fill);
-            DrawEdge(dis->hDC, &r, (dis->itemState & ODS_SELECTED) ? EDGE_SUNKEN : EDGE_RAISED, BF_RECT);
+            const bool pressed = (dis->itemState & ODS_SELECTED) != 0;
+            fillSolid(dis->hDC, r, pressed ? kInset : (g_startHot ? kHover : kBackground));
+            drawBevel(dis->hDC, r, !pressed);
             SetBkMode(dis->hDC, TRANSPARENT);
-            SetTextColor(dis->hDC, RGB(35, 43, 31));
+            SetTextColor(dis->hDC, kText);
             HFONT old = static_cast<HFONT>(SelectObject(dis->hDC, g_sectionFont));
             wchar_t label[64]{};
             GetWindowTextW(dis->hwndItem, label, 63);
+            if (pressed) OffsetRect(&r, 1, 1);
             DrawTextW(dis->hDC, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             SelectObject(dis->hDC, old);
             return TRUE;
@@ -708,7 +744,7 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                                     CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, L"Tahoma");
         g_windowBrush = CreateSolidBrush(kBackground);
         g_controlBrush = CreateSolidBrush(kPanel);
-        g_comboBrush = CreateSolidBrush(RGB(176, 180, 157));
+        g_comboBrush = CreateSolidBrush(kBackground);
 
         g_titleFont = CreateFontW(22, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
                                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -719,11 +755,13 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                                        30, 122, 555, 240, hwnd, ID_INPUT);
         setFont(g_app.inputCombo);
         SetWindowTheme(g_app.inputCombo, L"", L"");
+        SetWindowSubclass(g_app.inputCombo, comboProc, 0, 0);
 
         g_app.outputCombo = makeControl(L"COMBOBOX", L"", CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS | WS_VSCROLL,
                                         30, 200, 555, 240, hwnd, ID_OUTPUT);
         setFont(g_app.outputCombo);
         SetWindowTheme(g_app.outputCombo, L"", L"");
+        SetWindowSubclass(g_app.outputCombo, comboProc, 0, 0);
 
         g_app.qualityValue = makeControl(L"STATIC", L"3 / 10", SS_RIGHT,
                                          510, 258, 75, 20, hwnd);
@@ -740,9 +778,10 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                                         BS_OWNERDRAW, 30, 462, 555, 42, hwnd, ID_START);
         setFont(g_app.startButton);
         SetWindowTheme(g_app.startButton, L"", L"");
+        SetWindowSubclass(g_app.startButton, buttonHoverProc, 0, 0);
 
         g_app.quality = std::clamp<int>(static_cast<int>(GetPrivateProfileIntW(
-            L"Audio", L"Quality", 3, L".\\source-voice.ini")), 0, 10);
+            L"Audio", L"Quality", 3, L".\\mic-sourceify.ini")), 0, 10);
         updateQualityText();
         populateDevices();
         SetTimer(hwnd, TIMER_ID, 50, nullptr);
@@ -817,8 +856,8 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         if (g_trayIconAdded) {
             ShowWindow(hwnd, SW_HIDE);
         } else {
-            MessageBoxW(hwnd, L"Could not create the notification-area icon. Source Voice will remain open.",
-                        L"Source Voice", MB_OK | MB_ICONWARNING);
+            MessageBoxW(hwnd, L"Could not create the notification-area icon. Mic-Sourceify will remain open.",
+                        L"Mic-Sourceify", MB_OK | MB_ICONWARNING);
         }
         return 0;
     case WM_DESTROY:
@@ -845,8 +884,8 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--list") list = true;
         if (std::string(argv[i]) == "--help" || std::string(argv[i]) == "-h") {
-            std::cout << "Source Voice\n  source-voice.exe          Open graphical interface\n"
-                         "  source-voice.exe --list   List PortAudio devices\n";
+            std::cout << "Mic-Sourceify\n  mic-sourceify.exe         Open graphical interface\n"
+                         "  mic-sourceify.exe --list  List PortAudio devices\n";
             return 0;
         }
     }
@@ -854,7 +893,7 @@ int main(int argc, char** argv) {
     PaError err = Pa_Initialize();
     if (err != paNoError) {
         MessageBoxW(nullptr, widen(Pa_GetErrorText(err)).c_str(),
-                    L"Source Voice · PortAudio error", MB_OK | MB_ICONERROR);
+                    L"Mic-Sourceify · PortAudio error", MB_OK | MB_ICONERROR);
         return 1;
     }
 
@@ -866,6 +905,9 @@ int main(int argc, char** argv) {
 
     // Detach from a console when started from Explorer; terminal sessions remain usable.
     FreeConsole();
+
+    // Keep saved settings from the old name (no-op if already migrated).
+    MoveFileW(L".\\source-voice.ini", L".\\mic-sourceify.ini");
 
     INITCOMMONCONTROLSEX controls{ sizeof(controls), ICC_BAR_CLASSES };
     InitCommonControlsEx(&controls);
@@ -884,22 +926,26 @@ int main(int argc, char** argv) {
     wc.hIconSm = g_appIconSmall;
     wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
     wc.hbrBackground = g_windowBrush ? g_windowBrush : reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-    wc.lpszClassName = L"SourceVoiceMainWindow";
+    wc.lpszClassName = L"MicSourceifyMainWindow";
     if (!RegisterClassExW(&wc)) {
         Pa_Terminate();
         MessageBoxW(nullptr, L"Could not register the application window.",
-                    L"Source Voice", MB_OK | MB_ICONERROR);
+                    L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         return 1;
     }
 
-    HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"Source Voice",
-                                WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-                                CW_USEDEFAULT, CW_USEDEFAULT, 640, 560,
+    const DWORD windowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN;
+    RECT windowRect{ 0, 0, 615, 534 };   // client area: 30 px margins on every side
+    AdjustWindowRectEx(&windowRect, windowStyle, FALSE, 0);
+    HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"Mic-Sourceify",
+                                windowStyle,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
                                 nullptr, nullptr, wc.hInstance, nullptr);
     if (!hwnd) {
         Pa_Terminate();
         MessageBoxW(nullptr, L"Could not create the application window.",
-                    L"Source Voice", MB_OK | MB_ICONERROR);
+                    L"Mic-Sourceify", MB_OK | MB_ICONERROR);
         return 1;
     }
 
