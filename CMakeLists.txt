@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(SourceVoice LANGUAGES CXX RC)
 
 if(NOT WIN32)
-    message(FATAL_ERROR "Source Voice currently targets Windows.")
+    message(FATAL_ERROR "Mic-Sourceify currently targets Windows.")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
